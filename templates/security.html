@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Security Events{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Security Events</h2>
+    <p class="subtitle">Authentication, sudo, and system security events from journalctl</p>
+</div>
+
+<!-- Alert Banner -->
+<div id="alert-banner" style="display:none;" class="card" style="margin-bottom: 16px; border-color: var(--red);">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 1.2rem;">🚨</span>
+        <span id="alert-text" style="color: var(--red); font-weight: 500;"></span>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="stats-grid" style="margin-bottom: 20px;">
+    <div class="card">
+        <div class="card-title">Total Events</div>
+        <div class="card-value" id="total-events">0</div>
+    </div>
+    <div class="card">
+        <div class="card-title">SSH Events</div>
+        <div class="card-value" id="ssh-events">0</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Sudo Events</div>
+        <div class="card-value" id="sudo-events">0</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Warnings</div>
+        <div class="card-value" id="warning-events" style="color: var(--amber);">0</div>
+    </div>
+</div>
+
+<!-- Events Table -->
+<div class="card">
+    <div class="card-title">Live Event Feed</div>
+    <div class="table-scroll">
+        <table class="data-table" id="security-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Category</th>
+                    <th>Severity</th>
+                    <th>Details</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="security-tbody">
+                <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px;">Waiting for security events…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- AI Analysis Modal -->
+<div id="ai-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:300; align-items:center; justify-content:center;">
+    <div class="card" style="max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+        <div class="card-title">AI Threat Analysis</div>
+        <div id="ai-result" style="white-space: pre-wrap; font-size: 0.85rem; line-height: 1.6;"></div>
+        <button onclick="document.getElementById('ai-modal').style.display='none'" style="margin-top: 16px; padding: 8px 20px; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent); border-radius: var(--radius-sm); cursor: pointer; font-weight: 500;">Close</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const tbody = document.getElementById('security-tbody');
+let events = [];
+let firstLoad = true;
+
+function renderEvent(ev) {
+    const sevClass = ev.severity === 'warning' ? 'badge-amber' : ev.severity === 'critical' ? 'badge-red' : 'badge-accent';
+    const detailStr = Object.entries(ev.details || {}).map(([k,v]) => `${k}: ${v}`).join(', ');
+
+    return `<tr>
+        <td>${ev.timestamp}</td>
+        <td><span class="badge badge-accent">${ev.category}</span></td>
+        <td><span class="badge ${sevClass}">${ev.severity}</span></td>
+        <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">${detailStr}</td>
+        <td><button onclick="analyzeEvent('${detailStr.replace(/'/g, "\\'")}')" style="padding: 3px 10px; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 0.72rem;">🤖 AI</button></td>
+    </tr>`;
+}
+
+function updateStats() {
+    document.getElementById('total-events').textContent = events.length;
+    document.getElementById('ssh-events').textContent = events.filter(e => e.category === 'ssh').length;
+    document.getElementById('sudo-events').textContent = events.filter(e => e.category === 'sudo').length;
+    document.getElementById('warning-events').textContent = events.filter(e => e.severity === 'warning').length;
+}
+
+// Load initial events
+fetch('/api/security-events')
+    .then(r => r.json())
+    .then(data => {
+        events = data;
+        if (events.length > 0) {
+            tbody.innerHTML = events.map(renderEvent).join('');
+        }
+        updateStats();
+    });
+
+// Live events
+socket.on('security_event', (ev) => {
+    events.unshift(ev);
+    if (firstLoad && events.length === 1) {
+        tbody.innerHTML = '';
+        firstLoad = false;
+    }
+    tbody.insertAdjacentHTML('afterbegin', renderEvent(ev));
+    updateStats();
+});
+
+// Enforcer alerts
+socket.on('security_alert', (alert) => {
+    const banner = document.getElementById('alert-banner');
+    document.getElementById('alert-text').textContent = alert.message;
+    banner.style.display = 'block';
+});
+
+function analyzeEvent(description) {
+    const modal = document.getElementById('ai-modal');
+    const result = document.getElementById('ai-result');
+    modal.style.display = 'flex';
+    result.textContent = 'Analyzing with Gemini AI…';
+
+    fetch('/api/ai/analyze', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({description})
+    })
+    .then(r => r.json())
+    .then(data => {
+        result.textContent = data.analysis || data.error || 'No response';
+    })
+    .catch(err => {
+        result.textContent = 'Error: ' + err.message;
+    });
+}
+</script>
+{% endblock %}

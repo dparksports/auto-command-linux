@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Connections{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Connections</h2>
+    <p class="subtitle">Active TCP/UDP connections with process and WhoIs resolution</p>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid" style="margin-bottom: 20px;">
+    <div class="card">
+        <div class="card-title">Active Connections</div>
+        <div class="card-value" id="conn-count">0</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Established</div>
+        <div class="card-value" id="established-count">0</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Listening</div>
+        <div class="card-value" id="listening-count">0</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Unique Remote IPs</div>
+        <div class="card-value" id="unique-ips">0</div>
+    </div>
+</div>
+
+<!-- Connections Table -->
+<div class="card" style="margin-bottom: 20px;">
+    <div class="card-title">Active Connections</div>
+    <div class="table-scroll" style="max-height: 500px;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Protocol</th>
+                    <th>Local Address</th>
+                    <th>Remote Address</th>
+                    <th>Status</th>
+                    <th>Process</th>
+                    <th>WhoIs</th>
+                </tr>
+            </thead>
+            <tbody id="conn-tbody">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading connections…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Connection History -->
+<div class="card">
+    <div class="card-title">Recent Connection Events</div>
+    <ul class="timeline" id="conn-history">
+        <li class="timeline-item">
+            <div class="timeline-dot" style="background: var(--text-muted);"></div>
+            <div class="timeline-content">
+                <div class="timeline-title" style="color: var(--text-muted);">Waiting for connection changes…</div>
+            </div>
+        </li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const connTbody = document.getElementById('conn-tbody');
+const historyList = document.getElementById('conn-history');
+let historyStarted = false;
+
+function renderConnections(conns) {
+    document.getElementById('conn-count').textContent = conns.length;
+    document.getElementById('established-count').textContent = conns.filter(c => c.status === 'ESTABLISHED').length;
+    document.getElementById('listening-count').textContent = conns.filter(c => c.status === 'LISTEN').length;
+
+    const uniqueIps = new Set(conns.filter(c => c.remote_addr).map(c => c.remote_addr.split(':')[0]));
+    document.getElementById('unique-ips').textContent = uniqueIps.size;
+
+    connTbody.innerHTML = conns.map(c => {
+        const statusClass = c.status === 'ESTABLISHED' ? 'badge-green' :
+                          c.status === 'LISTEN' ? 'badge-accent' :
+                          c.status === 'TIME_WAIT' ? 'badge-amber' : 'badge-accent';
+        return `<tr>
+            <td><span class="badge badge-accent">${c.protocol}</span></td>
+            <td>${c.local_addr}</td>
+            <td>${c.remote_addr || '—'}</td>
+            <td><span class="badge ${statusClass}">${c.status}</span></td>
+            <td>${c.process || '—'}</td>
+            <td style="font-family: 'Inter', sans-serif; font-size: 0.72rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${c.whois || ''}</td>
+        </tr>`;
+    }).join('');
+}
+
+// Real-time updates
+socket.on('connections_update', renderConnections);
+
+// Connection events (opened/closed)
+socket.on('connection_event', (ev) => {
+    if (!historyStarted) {
+        historyList.innerHTML = '';
+        historyStarted = true;
+    }
+    const color = ev.event === 'opened' ? 'var(--green)' : 'var(--red)';
+    const icon = ev.event === 'opened' ? '🟢' : '🔴';
+    const li = document.createElement('li');
+    li.className = 'timeline-item';
+    li.innerHTML = `
+        <div class="timeline-dot" style="background: ${color};"></div>
+        <div class="timeline-content">
+            <div class="timeline-title">${icon} ${ev.event.toUpperCase()} — ${ev.remote_addr || '?'} (${ev.process || ev.protocol})</div>
+            <div class="timeline-time">${ev.event_time}</div>
+        </div>
+    `;
+    historyList.insertBefore(li, historyList.firstChild);
+    // Keep max 50
+    while (historyList.children.length > 50) historyList.removeChild(historyList.lastChild);
+});
+
+// Initial load
+fetch('/api/connections').then(r => r.json()).then(renderConnections);
+</script>
+{% endblock %}

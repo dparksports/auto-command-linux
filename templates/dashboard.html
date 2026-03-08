@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Dashboard{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Dashboard</h2>
+    <p class="subtitle">Real-time system performance monitoring</p>
+</div>
+
+<!-- Stats Cards -->
+<div class="stats-grid">
+    <div class="card" id="cpu-card">
+        <div class="card-title">CPU Usage</div>
+        <div class="card-value" id="cpu-value">0%</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="cpu-bar" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <div class="card" id="ram-card">
+        <div class="card-title">Memory</div>
+        <div class="card-value" id="ram-value">0%</div>
+        <div class="card-sub" id="ram-detail">0 / 0 GB</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="ram-bar" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Network ↑</div>
+        <div class="card-value" id="net-send">0</div>
+        <div class="card-sub">KB/s</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Network ↓</div>
+        <div class="card-value" id="net-recv">0</div>
+        <div class="card-sub">KB/s</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Disk Read</div>
+        <div class="card-value" id="disk-read">0</div>
+        <div class="card-sub">KB/s</div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Disk Write</div>
+        <div class="card-value" id="disk-write">0</div>
+        <div class="card-sub">KB/s</div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="charts-grid">
+    <div class="card">
+        <div class="card-title">CPU History (60s)</div>
+        <div class="chart-container">
+            <canvas id="cpu-chart"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title">Memory History (60s)</div>
+        <div class="chart-container">
+            <canvas id="ram-chart"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title">Network I/O (60s)</div>
+        <div class="chart-container">
+            <canvas id="net-chart"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title">Disk I/O (60s)</div>
+        <div class="chart-container">
+            <canvas id="disk-chart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- System Info + GPU -->
+<div class="info-grid">
+    <div class="card">
+        <div class="card-title">System Information</div>
+        <div class="info-item">
+            <span class="info-label">Hostname</span>
+            <span class="info-value">{{ sys_info.hostname }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">OS</span>
+            <span class="info-value">{{ sys_info.os }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Kernel</span>
+            <span class="info-value">{{ sys_info.kernel }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Architecture</span>
+            <span class="info-value">{{ sys_info.architecture }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Uptime</span>
+            <span class="info-value" id="uptime-value">{{ sys_info.uptime }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Boot Time</span>
+            <span class="info-value">{{ sys_info.boot_time }}</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Hardware</div>
+        <div class="info-item">
+            <span class="info-label">CPU</span>
+            <span class="info-value">{{ sys_info.cpu_model }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Cores / Threads</span>
+            <span class="info-value">{{ sys_info.cpu_cores }} / {{ sys_info.cpu_threads }}</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Secure Boot</span>
+            <span class="info-value">
+                {% if sys_info.secure_boot == 'Enabled' %}
+                    <span class="badge badge-green">{{ sys_info.secure_boot }}</span>
+                {% elif sys_info.secure_boot == 'Disabled' %}
+                    <span class="badge badge-amber">{{ sys_info.secure_boot }}</span>
+                {% else %}
+                    <span class="badge badge-accent">{{ sys_info.secure_boot }}</span>
+                {% endif %}
+            </span>
+        </div>
+        <div id="gpu-info"></div>
+        <div id="partition-info"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

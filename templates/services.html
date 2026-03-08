@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Services{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Services</h2>
+    <p class="subtitle">Systemd service status and management</p>
+</div>
+
+<!-- Service Stats -->
+<div class="stats-grid" style="margin-bottom: 20px;">
+    <div class="card">
+        <div class="card-title">Total Services</div>
+        <div class="card-value" id="total-services">0</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Running</div>
+        <div class="card-value" id="running-services" style="color: var(--green);">0</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Failed</div>
+        <div class="card-value" id="failed-services" style="color: var(--red);">0</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Timers Active</div>
+        <div class="card-value" id="active-timers">0</div>
+    </div>
+</div>
+
+<!-- Services Table -->
+<div class="card" style="margin-bottom: 20px;">
+    <div class="card-title">System Services</div>
+    <div class="table-scroll" style="max-height: 500px;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Service</th>
+                    <th>Active State</th>
+                    <th>Sub State</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody id="services-tbody">
+                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading services…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Timers Table -->
+<div class="card">
+    <div class="card-title">Systemd Timers</div>
+    <div class="table-scroll">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Timer</th>
+                    <th>Next Run</th>
+                    <th>Last Run</th>
+                    <th>Unit</th>
+                </tr>
+            </thead>
+            <tbody id="timers-tbody">
+                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">Loading timers…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadServices() {
+    // Use systemctl to list services
+    fetch('/api/services')
+        .then(r => r.json())
+        .then(data => {
+            const tbody = document.getElementById('services-tbody');
+            tbody.innerHTML = '';
+
+            document.getElementById('total-services').textContent = data.services.length;
+            document.getElementById('running-services').textContent = data.services.filter(s => s.active === 'active').length;
+            document.getElementById('failed-services').textContent = data.services.filter(s => s.active === 'failed').length;
+
+            data.services.forEach(s => {
+                const stateClass = s.active === 'active' ? 'badge-green' :
+                                 s.active === 'failed' ? 'badge-red' :
+                                 s.active === 'inactive' ? 'badge-amber' : 'badge-accent';
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-weight: 500;">${s.name}</td>
+                    <td><span class="badge ${stateClass}">${s.active}</span></td>
+                    <td>${s.sub}</td>
+                    <td style="font-family: 'Inter', sans-serif; font-size: 0.78rem; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${s.description}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Timers
+            const timersTbody = document.getElementById('timers-tbody');
+            document.getElementById('active-timers').textContent = data.timers.length;
+            timersTbody.innerHTML = data.timers.map(t => `
+                <tr>
+                    <td style="font-weight: 500;">${t.timer}</td>
+                    <td>${t.next || '—'}</td>
+                    <td>${t.last || '—'}</td>
+                    <td>${t.unit}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No timers</td></tr>';
+        });
+}
+loadServices();
+</script>
+{% endblock %}

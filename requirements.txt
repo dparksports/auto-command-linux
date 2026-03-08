@@ -1,0 +1,6 @@
+flask>=3.0
+flask-socketio>=5.3
+psutil>=5.9
+pyudev>=0.24
+requests>=2.31
+eventlet>=0.35

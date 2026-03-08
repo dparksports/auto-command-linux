@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title_suffix %} — Firewall{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Firewall</h2>
+    <p class="subtitle">UFW / iptables rule viewer with drift detection</p>
+</div>
+
+<!-- Status -->
+<div class="stats-grid" style="margin-bottom: 20px;">
+    <div class="card">
+        <div class="card-title">Engine</div>
+        <div class="card-value" id="fw-engine" style="font-size: 1.4rem;">—</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Status</div>
+        <div class="card-value" id="fw-status" style="font-size: 1.4rem;">—</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Rules</div>
+        <div class="card-value" id="fw-rule-count">0</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Drift Detection</div>
+        <div class="card-value" id="fw-drift" style="font-size: 0.9rem; color: var(--text-secondary);">—</div>
+        <button onclick="checkDrift()" style="margin-top: 8px; padding: 4px 12px; background: var(--accent-dim); color: var(--accent); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 0.72rem;">Check Drift</button>
+        <button onclick="saveSnapshot()" style="margin-top: 8px; margin-left: 4px; padding: 4px 12px; background: var(--bg-input); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 0.72rem;">Save Snapshot</button>
+    </div>
+</div>
+
+<!-- Rules Table -->
+<div class="card">
+    <div class="card-title" id="rules-title">Firewall Rules</div>
+    <div class="table-scroll">
+        <table class="data-table">
+            <thead id="rules-thead"></thead>
+            <tbody id="rules-tbody">
+                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">Loading firewall rules…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadFirewall() {
+    fetch('/api/firewall')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('fw-engine').textContent = data.engine.toUpperCase();
+            const statusEl = document.getElementById('fw-status');
+            statusEl.textContent = data.status;
+            statusEl.style.color = data.status === 'active' ? 'var(--green)' : 'var(--amber)';
+
+            document.getElementById('fw-rule-count').textContent = data.rules.length;
+
+            const thead = document.getElementById('rules-thead');
+            const tbody = document.getElementById('rules-tbody');
+
+            if (data.engine === 'ufw') {
+                thead.innerHTML = '<tr><th>To</th><th>Action</th><th>From</th><th>Comment</th></tr>';
+                tbody.innerHTML = data.rules.map(r => `
+                    <tr>
+                        <td>${r.to}</td>
+                        <td><span class="badge ${r.action.includes('ALLOW') ? 'badge-green' : r.action.includes('DENY') ? 'badge-red' : 'badge-amber'}">${r.action}</span></td>
+                        <td>${r.from}</td>
+                        <td style="font-family: 'Inter', sans-serif; font-size: 0.78rem;">${r.comment || ''}</td>
+                    </tr>
+                `).join('') || '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No rules found</td></tr>';
+            } else if (data.engine === 'iptables') {
+                thead.innerHTML = '<tr><th>Chain</th><th>#</th><th>Target</th><th>Protocol</th><th>Source</th><th>Destination</th><th>Extra</th></tr>';
+                tbody.innerHTML = data.rules.map(r => `
+                    <tr>
+                        <td><span class="badge badge-accent">${r.chain}</span></td>
+                        <td>${r.num}</td>
+                        <td><span class="badge ${r.target === 'ACCEPT' ? 'badge-green' : r.target === 'DROP' ? 'badge-red' : 'badge-amber'}">${r.target}</span></td>
+                        <td>${r.protocol}</td>
+                        <td>${r.source}</td>
+                        <td>${r.destination}</td>
+                        <td style="font-size: 0.72rem;">${r.extra}</td>
+                    </tr>
+                `).join('') || '<tr><td colspan="7" style="text-align:center; color:var(--text-muted);">No rules found</td></tr>';
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No firewall engine detected (ufw/iptables)</td></tr>';
+            }
+        });
+}
+
+function checkDrift() {
+    fetch('/api/firewall/drift')
+        .then(r => r.json())
+        .then(data => {
+            const el = document.getElementById('fw-drift');
+            el.textContent = data.message;
+            el.style.color = data.has_drift ? 'var(--red)' : 'var(--green)';
+        });
+}
+
+function saveSnapshot() {
+    fetch('/api/firewall/snapshot', {method: 'POST'})
+        .then(r => r.json())
+        .then(() => {
+            document.getElementById('fw-drift').textContent = 'Snapshot saved';
+            document.getElementById('fw-drift').style.color = 'var(--green)';
+        });
+}
+
+loadFirewall();
+</script>
+{% endblock %}

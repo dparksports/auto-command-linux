@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Command{% block title_suffix %}{% endblock %}</title>
+    <meta name="description" content="System Monitor & Security Dashboard for Linux">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="logo-icon">AC</div>
+                    <div>
+                        <h1>Auto Command</h1>
+                        <span class="version">Linux v1.0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">Overview</div>
+                    <a href="/" class="nav-link {{ 'active' if page == 'dashboard' }}">
+                        <span class="nav-icon">📊</span> Dashboard
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Monitoring</div>
+                    <a href="/security" class="nav-link {{ 'active' if page == 'security' }}">
+                        <span class="nav-icon">🛡️</span> Security Events
+                    </a>
+                    <a href="/devices" class="nav-link {{ 'active' if page == 'devices' }}">
+                        <span class="nav-icon">🔌</span> Devices
+                    </a>
+                    <a href="/connections" class="nav-link {{ 'active' if page == 'connections' }}">
+                        <span class="nav-icon">🌐</span> Connections
+                    </a>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">Management</div>
+                    <a href="/firewall" class="nav-link {{ 'active' if page == 'firewall' }}">
+                        <span class="nav-icon">🔥</span> Firewall
+                    </a>
+                    <a href="/services_page" class="nav-link {{ 'active' if page == 'services' }}">
+                        <span class="nav-icon">⚙️</span> Services
+                    </a>
+                    <a href="/settings" class="nav-link {{ 'active' if page == 'settings' }}">
+                        <span class="nav-icon">🔧</span> Settings
+                    </a>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <div class="status-dot" id="status-dot"></div>
+                    <span id="status-text">Monitoring Active</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <div id="connection-status">⚠ Disconnected</div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
